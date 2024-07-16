@@ -1,0 +1,65 @@
+//pid.c
+/*************************************************************
+*【时间】7.16
+*【功能】1.4m 完赛
+*【更新时间】7.16
+*
+****************************************************************/
+/////////////////////pid.c///////////////////////////////////////////
+#include "headfile.h"
+#include "SEEKFREE_TSL1401.h"
+#include "pid.h"
+//.c文件的全局变量应该就相当于是静态变量了
+//速度环
+float Kp_s = 110;  //
+float Ki_s = 0.28;//10.0;  //0.2
+float Kd_s = 0;
+//转向环	
+float Kp_T= 122; //27（能用）   20           30(速度快转不过来) 30（同上）
+float Kd_T=1800;// 15   11.5   15,5        19.5
+float Kp2_T = 0;
+float Kd2_T = 0;
+
+
+int16 speed_l,speed_r;
+int32 error_sum_speed_l;
+int32 error_speed_last = 0;
+int32 output_speed_l=0;
+int32 output_speed_r=0;
+int32 output_d=0;
+int32 error_last_T=0;
+int32 output_T=0;
+
+extern float error;//电感误差值
+
+int pidpwm_l(int16 error_speed_l)  //
+{
+
+    if(error_sum_speed_l>10000)
+    {
+        error_sum_speed_l=10000;
+    }
+
+    if(error_sum_speed_l<-10000)
+     {
+         error_sum_speed_l=-10000;
+     }
+    output_speed_l =(int32 )(Kp_s * error_speed_l+ Ki_s*error_sum_speed_l + Kd_s*(error_speed_l - error_speed_last));//
+	
+    error_sum_speed_l+=error_speed_l;
+	error_speed_last = error_speed_l;
+    return  output_speed_l;
+}
+
+
+
+int pidxunxian_T(int16 error_img)  //
+{									//
+	//更新
+	update_Kp();
+	//计算
+    output_T = (int16)(Kp_T * error_img+ Kd_T*(error_img-error_last_T));//
+    error_last_T=error_img;
+    return output_T;
+
+}
