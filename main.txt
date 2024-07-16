@@ -170,17 +170,13 @@ void show(void)
 	{
 		//显示信息面板
 		ips114_clear(WHITE);//清屏
-		ips114_showstr(14*10, 1, "mod");
-		ips114_showstr(0, 1, "error");ips114_showstr(0,1," ");
-		ips114_showstr(0,2," ");ips114_showstr(0, 4, " ");
-		ips114_showstr(0,3," ");ips114_showstr(0,5," ");
-	    
-		ips114_showstr(14*10, 2, "spe_l=");	ips114_showstr(14*10, 3, "spe_r =");
-		ips114_showstr(14*10, 4, "pwm_l =");ips114_showstr(14*10, 5, "pwm_r =");	
-		ips114_showstr(0,4,"speed="); ips114_showstr(14*10, 6, "dist");	
-		ips114_showstr(0,5,"step="); 
-		ips114_showstr(0,6,"Angle="); 
-		ips114_showstr(0, 7, "left=");
+		ips114_showstr(0, 1, "error");ips114_showstr(14*10, 1, "mod");
+								ips114_showstr(14*10, 2, "spe_l=");
+								ips114_showstr(14*10, 3, "spe_r =");
+		ips114_showstr(0,4,"speed="); ips114_showstr(14*10, 4, "pwm_l =");
+		ips114_showstr(0,5,"step="); ips114_showstr(14*10, 5, "pwm_r =");	
+		ips114_showstr(0,6,"Angle="); ips114_showstr(14*10, 6, "dist");	
+		ips114_showstr(0, 7, "left=");ips114_showstr(14*10, 7, "Kp");	
 		
 		while(mod ==1)
 		{
