@@ -25,47 +25,47 @@ char code *p = "@STCISP#";
 //UART1中断
 void UART1_Isr() interrupt 4
 {
-	char dat;
-	if(TI)
-	{
-		TI = 0;
-	}
-	if(RI)
-	{
-		RI = 0;
-		dat = SBUF;
-		
-		if(dat == p[index])
-		{
-				IAP_CONTR = 0x60;
-		}
-		else 
-		{
-			IAP_CONTR = 0x60;
-		}
-	}
-//    uint8 res;
-//	static uint8 dwon_count;
-//    if(UART1_GET_TX_FLAG)
-//    {
-//        UART1_CLEAR_TX_FLAG;
-//        busy[1] = 0;
-//    }
-//    if(UART1_GET_RX_FLAG)
-//    {
-//        UART1_CLEAR_RX_FLAG;
-//        res = SBUF;
-//        //程序自动下载
-//        if(res == 0x7F)
-//        {
-//            if(dwon_count++ > 20)
-//                IAP_CONTR = 0x60;
-//        }
-//        else
-//        {
-//            dwon_count = 0;
-//        }
-//    }
+//	char dat;
+//	if(TI)
+//	{
+//		TI = 0;
+//	}
+//	if(RI)
+//	{
+//		RI = 0;
+//		dat = SBUF;
+//		
+//		if(dat == p[index])
+//		{
+//				IAP_CONTR = 0x60;
+//		}
+//		else 
+//		{
+//			IAP_CONTR = 0x60;
+//		}
+//	}
+    uint8 res;
+	static uint8 dwon_count;
+    if(UART1_GET_TX_FLAG)
+    {
+        UART1_CLEAR_TX_FLAG;
+        busy[1] = 0;
+    }
+    if(UART1_GET_RX_FLAG)
+    {
+        UART1_CLEAR_RX_FLAG;
+        res = SBUF;
+        //程序自动下载
+        if(res == 0x7F)
+        {
+            if(dwon_count++ > 20)
+                IAP_CONTR = 0x60;
+        }
+        else
+        {
+            dwon_count = 0;
+        }
+    }
 }
 
 //UART2中断

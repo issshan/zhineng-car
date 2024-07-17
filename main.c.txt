@@ -154,18 +154,18 @@ void init()
 	BEEP = 0; 
 	//按键控制 
 	mod = 1; 
-	//示波器 
+	//示波器 (初始化)
 	if(0) 
 	{ 
-		// 设置函数指针(示波器) 
-//		seekfree_assistant_transfer = seekfree_assistant_transfer_callback; 
-//		// 需要传输四个通道数据(示波器绑定数值初始化) 
-//		// 设置数据 
-//		seekfree_assistant_oscilloscope_data.dat[0] = pwm_l; 
-//		seekfree_assistant_oscilloscope_data.dat[1] = speed_r; 
-//		seekfree_assistant_oscilloscope_data.dat[2] = speed_l; 
-//		seekfree_assistant_oscilloscope_data.dat[3] = speed_targe; 
-//		seekfree_assistant_oscilloscope_data.channel_num = 4; 
+	// 设置函数指针(示波器) 
+	seekfree_assistant_transfer = seekfree_assistant_transfer_callback; 
+	// 需要传输四个通道数据(示波器绑定数值初始化) 
+	// 设置数据 
+	seekfree_assistant_oscilloscope_data.dat[0] = pwm_l; 
+	seekfree_assistant_oscilloscope_data.dat[1] = speed_r; 
+	seekfree_assistant_oscilloscope_data.dat[2] = speed_l; 
+	seekfree_assistant_oscilloscope_data.dat[3] = speed_targe; 
+	seekfree_assistant_oscilloscope_data.channel_num = 4; 
 	} 
 	 
 } 
@@ -185,8 +185,8 @@ void show(void)
 		ips114_showstr(14*10, 2, "spe_l=");	ips114_showstr(14*10, 3, "spe_r =");
 		ips114_showstr(14*10, 4, "pwm_l =");ips114_showstr(14*10, 5, "pwm_r =");	
 		ips114_showstr(0,4,"speed="); ips114_showstr(14*10, 6, "dist");	
-		ips114_showstr(0,5,"step="); 
-		ips114_showstr(0,6,"Angle="); 
+		ips114_showstr(0,5,"sudu="); 
+		ips114_showstr(0,6,"xunji="); 
 		ips114_showstr(0, 7, "left=");
 		
 		while(mod ==1)
@@ -212,9 +212,9 @@ void show(void)
 			ips114_showuint16(18*10,1,mod);		ips114_showint32(8*10,1,error,6);
 			ips114_showint16(18*10, 2, speed_l);
 			ips114_showint16(18*10, 3, speed_r);
-			ips114_showint16(8*10, 4, speed_targe);	ips114_showint32(18*10, 4, pwm_l,5);
-			ips114_showint16(8*10, 5, flag_bizhang);ips114_showint32(18*10, 5, pwm_r,5);	
-			ips114_showint16(8*10, 6, FJ_Angle);
+			ips114_showint16(8*10, 4, speed_targe);	ips114_showint32(19*10, 4, pwm_l,5);
+			ips114_showint32(8*10, 5, suduhuan,5);ips114_showint32(19*10, 5, pwm_r,5);	
+			ips114_showint32(8*10, 6, xunji,5);
 			ips114_showint32(8*10, 7,Sum_left,5);
 
 											if(dl1a_finsh_flag)
@@ -225,7 +225,7 @@ void show(void)
 			//示波器数据发送
 			// 通过串口发送虚拟示波器数据
 //			seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
-			delay_ms(1);
+//			delay_ms(1);
 		}
 			
 	}
@@ -236,8 +236,8 @@ void show(void)
 		ips114_showstr(0,0,"mod");ips114_showstr(14*10,0,"SPEED=");	
 		ips114_showstr(0,1,"key");ips114_showstr(14*10,1,"Kp_T=");
 							ips114_showstr(14*10,2,"Kd-T=");
-							ips114_showstr(14*10,3,"X=");
-							ips114_showstr(14*10,4,"Ki_s=");	
+							ips114_showstr(14*10,3,"	Kp_S=");
+							ips114_showstr(14*10,4,"Ki_S=");	
 							ips114_showstr(14*10,5,"Kd_T=");
 							ips114_showstr(14*10,6,"dg_mod");
 		
@@ -290,7 +290,7 @@ void show(void)
 				else if(key_count ==3)
 					Kd_T = Kd_T + add -sub;
 				else if(key_count ==4)
-					X = X+ 100*add - 100*sub;
+					Kp_s = Kp_s+ 2*add - 2*sub;
 				else if(key_count ==5)
 					Ki_s = Ki_s + 0.01*add - 0.01*sub;
 				else if(key_count == 6)
@@ -303,14 +303,15 @@ void show(void)
 			ips114_showint16(4*10,0,mod);      ips114_showint16(18*10,0,rhy);
 			ips114_showint16(4*10,1,key_count);ips114_showint16(18*10,1,Kp_T);
 			ips114_showint16(4*10,2,speed_targe);ips114_showint16(18*10,2,Kd_T);
-										ips114_showint16(18*10,3,X);			
+										ips114_showint16(18*10,3,Kp_s);			
 										ips114_showint16(18*10,4,(int16)(100*Ki_s));			
 										ips114_showint16(18*10,5,Kd_T);
 										ips114_showint16(18*10,6,diangan_mod);
 			
-			//示波器数据发送
+			//示波器(数据发送)
 //			seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
-//			delay_ms(1);
+//		
+//		delay_ms(1);
 		}
 			
 	
@@ -617,9 +618,10 @@ void panduan()
 	pwm_r += suduhuan; 
  
 	 
-	//示波器调速度环 
+	//示波器调速度环 (更新)
 	if(0) 
 	{ 
+		pwm_l = 0;pwm_r = 0;
 		speed_targe = rhy; 
 		error_s = (2*speed_targe - speed_l -speed_r)/2; 
 		//error_s = speed_targe - speed_l; 
@@ -627,21 +629,23 @@ void panduan()
 		pwm_l += suduhuan; 
 		pwm_r += suduhuan; 
 		//更新示波器显示值 
-//			seekfree_assistant_oscilloscope_data.dat[0] = pwm_l; 
-//			seekfree_assistant_oscilloscope_data.dat[1] = speed_r; 
-//			seekfree_assistant_oscilloscope_data.dat[2] = speed_l; 
-//			seekfree_assistant_oscilloscope_data.dat[3] = speed_targe; 
+		seekfree_assistant_oscilloscope_data.dat[0] = pwm_l; 
+		seekfree_assistant_oscilloscope_data.dat[1] = speed_r; 
+		seekfree_assistant_oscilloscope_data.dat[2] = speed_l; 
+		seekfree_assistant_oscilloscope_data.dat[3] = speed_targe; 
 	} 
 		 
+//			seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
+//			delay_ms(1);
 } 
  
  
  
  
  
+
 void main() 
 {  
-	 
 	//编码器启动用的 
 //	sys_init(); //弄了自动下载，一个是好像和这个冲突，另一个是这个变的会导致无法reset
 	EA = 1;
@@ -656,27 +660,19 @@ void main()
 		if(0)//测试电机正反转 
 		{ 
 			pwm_l = 2500; 
-			pwm_r = 0; 
-			output(); 
-			delay_ms(2000); 
-			 
-			pwm_l =  0; 
 			pwm_r = 2500; 
 			output(); 
 			delay_ms(2000); 
 			 
-			pwm_l = -2500; 
-			pwm_r = 0; 
-			output(); 
-			delay_ms(2000); 
-			 
-			pwm_l = 0; 
+			pwm_l =  -2500; 
 			pwm_r = -2500; 
 			output(); 
 			delay_ms(2000); 
+			 
 		}		 
 	} 
 } 
+
 //基本寻迹中断函数 
 void pit_callback() 
 { 
@@ -712,25 +708,6 @@ void sys_init()
     P7M1 = 0x00;   P7M0 = 0x00;   //设置为准双向口
 }
  
-//自动下载初始化设置
-void upload_init()
-{
-	P0M0 = 0x00;P0M1 = 0x00;
-	P1M0 = 0x00;P1M1 = 0x00;
-	P2M0 = 0x00;P2M1 = 0x00;
-	P3M0 = 0x00;P3M1 = 0x00;
-	
-	SCON = 0x50;
-	AUXR = 0x40;
-	TMOD = 0x00;
-	TH1 = BAUD>>8;
-	TL1 = BAUD;
-	TR1 = 1;
-	ES = 1;
-	EA = 1;
-	
-	index = 0;
-}
 //按键 
 int16 KEY_Read(uint8 mode) 
 { 
@@ -773,11 +750,11 @@ int16 KEY_Read(uint8 mode)
 } 
  
 //示波器 
-uint32 seekfree_assistant_transfer_callback   (const uint8 *buff, uint32 length) 
-{ 
-	uart_putbuff(DEBUG_UART, buff, length); 
-	return 0; 
-} 
+uint32 seekfree_assistant_transfer_callback   (const uint8 *buff, uint32 length)
+{
+	uart_putbuff(DEBUG_UART, buff, length);
+	return 0;
+}
 //角度值清零 
 void Ang_reset() 
 { 

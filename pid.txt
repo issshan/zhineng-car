@@ -11,12 +11,12 @@
 #include "pid.h"
 //.c文件的全局变量应该就相当于是静态变量了
 //速度环
-float Kp_s = 110;  //
-float Ki_s = 0.28;//10.0;  //0.2
-float Kd_s = 50;
+float Kp_s = 134;  //
+float Ki_s = 0.31;//10.0;  //0.2
+float Kd_s = 0;
 //转向环	
-float Kp_T= 195; //27（能用）   20           30(速度快转不过来) 30（同上）
-float Kd_T=1800;// 
+float Kp_T= 250; //27（能用）   20           30(速度快转不过来) 30（同上）
+float Kd_T=4000;// 
 float Kp_W = 0;
 int16 last_w = 0;
 
@@ -55,7 +55,7 @@ int16 pidpwm_l(int16 error_speed_l)  //
 
 
 
-int32 pidxunxian_T(int16 error_img,int16 w)  //@（@4）
+int32 pidxunxian_T(float error_img,int16 w)  //@（@4）
 {									//
 	//无更新
 	//计算
