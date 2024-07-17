@@ -1,78 +1,82 @@
-//main.c 
+//main.c
 /*************************************************************
 *【时间】7.16
-*【功能】转向环好像有问题，备份一下（按理说是全元素但是卡轮子且转向环发现了问题）
+*【功能】1.4m 完赛
 *【更新时间】7.16
 *
 ****************************************************************/
+#include "headfile.h"
+//引脚宏定义
+#define SPEEDL_PLUSE   CTIM0_P34
+#define SPEEDR_PLUSE   CTIM3_P04
+#define SPEEDL_DIR     P35
+#define SPEEDR_DIR     P53
+#define BEEP P32//蜂鸣器
+#define KEY_1 P50//换mod
+#define KEY_2 P16//换key
+#define KEY_3 P17//add
+#define KEY_4 P51//sub
+//load(1)
+#define FOSC	11059200UL
+#define BAUD	(65535 - (FOSC/115200+2)/4)
 
-#include "headfile.h" 
-//引脚宏定义 
-#define SPEEDL_PLUSE   CTIM0_P34 
-#define SPEEDR_PLUSE   CTIM3_P04 
-#define SPEEDL_DIR     P35 
-#define SPEEDR_DIR     P53 
-#define BEEP P32//蜂鸣器 
-#define KEY_1 P50//换mod 
-#define KEY_2 P16//换key 
-#define KEY_3 P17//add 
-#define KEY_4 P51//sub 
- 
-int16 i;//for专用 
- 
-//计时间 计数变量 
-uint32 temp_count = 0;//已使用， 作为入环允许标志的计时复位 
- 
-//标志位（苯环,避障,丢线） 
-int16 flag_chuhuan = 0;//出环第0阶段标志 允许入环 
-int16 flag_bizhang = 0;//还未执行避障 
-int16 flag_diuxian = 0; 
-int16 typ = 0;//0:右圆环   1：左圆环  3:不尽欢 
-int16 type_bz = 1;//0:左避障   1：右避障  3:不避障 
- 
-//速度 
-int16 pwm_l=0, pwm_r=0; 
-int32 xunjihuan = 0;
-int16 suduhuan=0; 
-extern int16 speed_l,speed_r; 
-int16 speed_targe = 90;//目标速度 
- 
-//里程 
-volatile int32 Sum_left = 0; 
-volatile int32 Sum_right = 0; 
- 
-//角度 
-float FJ_Angle = 0;  
- 
-//采集值 
-float error_a; 
-float error_b; 
-float error;//电感误差值 
-float error_s;//实际差速 
-int16 ad[5]={0,0,0,0,0};//电感采集初始值 
-int32 adcgetdata_max[5]={3585,3580,3500,3500,3590};//电感最大值 
-int32 adcgetdata_min[5]={0,0,0,0,0}; 
- 
-//按键 
-uint16 add = 0;//加的标志位 
-uint16 sub = 0;//减的标志位 
-int16 key_count = 0;//按键调参的当前参数 
-uint16 mod;//显示页面的叶数 
-//按键调参对象 
-uint16 diangan_mod = 10;//电感采集模式  >=10:归一化    <10：不归一化 
-int16 rhy = 155;//目标速度 
+int index;
+int16 i;//for专用
+
+//计时间 计数变量
+uint32 temp_count = 0;//已使用， 作为入环允许标志的计时复位
+
+//标志位（苯环,避障,丢线）
+int16 flag_chuhuan = 0;//出环第0阶段标志 允许入环
+int16 flag_bizhang = 0;//还未执行避障
+int16 flag_diuxian = 0;//0:正常熏鸡  1:丢线
+uint16 flag_zhijiao = 0;//0:正常熏鸡  1:左直角  2：右直角
+int16 typ = 0;//0:右圆环   1：左圆环  3:不尽欢
+
+//速度
+int32 pwm_l=0, pwm_r=0;
+int32 suduhuan=0;
+int32 xunji = 0;
+extern int16 speed_l,speed_r;
+int16 speed_targe = 90;//目标速度
+
+//里程
+volatile int32 Sum_left = 0;
+volatile int32 Sum_right = 0;
+
+//角度
+float FJ_Angle = 0; 
+
+//采集值
+float error_a;
+float error_b;
+float error;//电感误差值
+float error_s;//实际差速
+int16 ad[5]={0,0,0,0,0};//电感采集初始值
+int32 adcgetdata_max[5]={3585,3580,3500,3500,3590};//电感最大值
+int32 adcgetdata_min[5]={0,0,0,0,0};
+
+//按键
+uint16 add = 0;//加的标志位
+uint16 sub = 0;//减的标志位
+int16 key_count = 0;//按键调参的当前参数
+uint16 mod;//显示页面的叶数
+//按键调参对象
+uint16 diangan_mod = 10;//电感采集模式  >=10:归一化    <10：不归一化
+int16 rhy = 180;//目标速度
 int16 Ang_1 = 90;
 int16 X = 4500;
 int16 e_a = 15;
- 
-//函数声明 
-void sys_init(void); 
-void output(void); 
-void show(void); 
-int16 KEY_Read(uint8 mode); 
-uint32 seekfree_assistant_transfer_callback(const uint8 *buff, uint32 length);//示波器 
-void Ang_reset(void); 
- 
+
+//函数声明
+void sys_init(void);
+void output(void);
+void show(void);
+int16 KEY_Read(uint8 mode);
+uint32 seekfree_assistant_transfer_callback(const uint8 *buff, uint32 length);//示波器
+void Ang_reset(void);
+void upload_init(void);
+
 //总限幅，以及输出PWM 
 void output() 
 { 
@@ -183,7 +187,7 @@ void show(void)
 		ips114_showstr(0,4,"speed="); ips114_showstr(14*10, 6, "dist");	
 		ips114_showstr(0,5,"step="); 
 		ips114_showstr(0,6,"Angle="); 
-		ips114_showstr(0, 7, "xunji_T=");
+		ips114_showstr(0, 7, "left=");
 		
 		while(mod ==1)
 		{
@@ -208,10 +212,10 @@ void show(void)
 			ips114_showuint16(18*10,1,mod);		ips114_showint32(8*10,1,error,6);
 			ips114_showint16(18*10, 2, speed_l);
 			ips114_showint16(18*10, 3, speed_r);
-			ips114_showint16(8*10, 4, speed_targe);	ips114_showint16(18*10, 4, pwm_l);
-			ips114_showint16(8*10, 5, flag_bizhang);ips114_showint16(18*10, 5, pwm_r);	
+			ips114_showint16(8*10, 4, speed_targe);	ips114_showint32(18*10, 4, pwm_l,5);
+			ips114_showint16(8*10, 5, flag_bizhang);ips114_showint32(18*10, 5, pwm_r,5);	
 			ips114_showint16(8*10, 6, FJ_Angle);
-			ips114_showint32(8*10, 7,xunjihuan,6);
+			ips114_showint32(8*10, 7,Sum_left,5);
 
 											if(dl1a_finsh_flag)
 											{
@@ -230,8 +234,8 @@ void show(void)
 		ips114_clear(WHITE);//清屏
 		//显示信息面板
 		ips114_showstr(0,0,"mod");ips114_showstr(14*10,0,"SPEED=");	
-		ips114_showstr(0,1,"key");ips114_showstr(14*10,1,"error1=");
-							ips114_showstr(14*10,2,"Ang1=");
+		ips114_showstr(0,1,"key");ips114_showstr(14*10,1,"Kp_T=");
+							ips114_showstr(14*10,2,"Kd-T=");
 							ips114_showstr(14*10,3,"X=");
 							ips114_showstr(14*10,4,"Ki_s=");	
 							ips114_showstr(14*10,5,"Kd_T=");
@@ -282,9 +286,9 @@ void show(void)
 				if(key_count ==1)
 					rhy = rhy + 5*add - 5*sub;
 				else if(key_count ==2)
-					e_a = e_a + add -sub;
+					Kp_T = Kp_T + add -sub;
 				else if(key_count ==3)
-					Ang_1 = Ang_1 + add -sub;
+					Kd_T = Kd_T + add -sub;
 				else if(key_count ==4)
 					X = X+ 100*add - 100*sub;
 				else if(key_count ==5)
@@ -297,8 +301,8 @@ void show(void)
 				add = 0;sub = 0;
 			}
 			ips114_showint16(4*10,0,mod);      ips114_showint16(18*10,0,rhy);
-			ips114_showint16(4*10,1,key_count);ips114_showint16(18*10,1,e_a);
-			ips114_showint16(4*10,2,speed_targe);ips114_showint16(18*10,2,Ang_1);
+			ips114_showint16(4*10,1,key_count);ips114_showint16(18*10,1,Kp_T);
+			ips114_showint16(4*10,2,speed_targe);ips114_showint16(18*10,2,Kd_T);
 										ips114_showint16(18*10,3,X);			
 										ips114_showint16(18*10,4,(int16)(100*Ki_s));			
 										ips114_showint16(18*10,5,Kd_T);
@@ -313,6 +317,8 @@ void show(void)
 		
 	}
 }
+ 
+ 
 //采集电感值和速度 
 void caiji_data() 
 { 
@@ -322,9 +328,25 @@ void caiji_data()
 	ad[2]=adc_once(ADC_P11, ADC_12BIT); 
 	ad[3]=adc_once(ADC_P06, ADC_12BIT); 
 	ad[4]=adc_once(ADC_P01, ADC_12BIT); 
+	if(0)//直角作为特殊元素处理（@4）
+	{
+		if( (ad[1]%100) > (ad[3]%100) * 4 )
+		{	flag_zhijiao = 1;//左直角
+			Ang_reset();
+		}
+		else if( (ad[1]%100) * 4 < (ad[3]%100) )
+		{	flag_zhijiao = 2;//右直角
+			Ang_reset();
+		}
+		else
+			flag_zhijiao = 0;//正常熏鸡
+	}
 	//判断丢线(避障的第一步即打脚时也默认丢线不给速度)（避障第二步不能丢线） 
-	if((ad[0]+ad[1]+ad[3]+ad[4] < 100 || flag_bizhang == 1) &&(flag_bizhang != 2 && flag_bizhang !=3 ))	flag_diuxian = 1;//丢线 
-	else flag_diuxian = 0;//没丢 
+	if((ad[0]+ad[1]+ad[3]+ad[4] < 100 || flag_bizhang == 1 || flag_zhijiao == 1 ||flag_zhijiao == 2)
+									&&(flag_bizhang != 2 && flag_bizhang !=3))	
+		flag_diuxian = 1;//丢线 
+	else 
+		flag_diuxian = 0;//没丢 
 	if(diangan_mod >= 10)//大于10为归一化模式 否则为原始值 
 	{ 
 		for(i=0;i<2;i++)//(1)（2） 
@@ -355,16 +377,16 @@ void caiji_data()
 	    } 
     } 
  
-    if(flag_diuxian == 0)//没有丢线的正常情况 
-    { 
-		error_a = sqrt(ad[0]*ad[0] + ad[1]*ad[1]); 
-		error_b = sqrt(ad[3]*ad[3] + ad[4]*ad[4]); 
+//    if(flag_diuxian == 0)//没有丢线的正常情况 
+//    { 
+		error_a = sqrt(ad[0]*ad[0] +ad[1]*ad[1]); 
+		error_b = sqrt(ad[3]*ad[3] +ad[4]*ad[4]); 
 		error = (error_a - error_b) * 100 /(error_a + error_b + 1);//差比和 
 	    if(error > 100)	error = 100; 
 	    if(error < -100)	error = -100; 
-    } 
-    else//删掉可能对 直角有帮助！！！！！
-    	    error = 0; 
+//    } 
+//    else//丢线了 也不左右乱晃 
+//    	    error = 0; 
 	 
     //采集速度 
 	speed_r = ctimer_count_read(SPEEDR_PLUSE); 
@@ -398,7 +420,7 @@ void caiji_data()
 void panduan() 
 { 
 /////////////////////////////////////////////圆环////////////////////////////////////////////	 
-	if(1)//(1.陀螺仪+编码器) 
+	if(0)//(1.陀螺仪+编码器) 
 	{ 
 		if(typ==0)//(右圆环) 
 		{ 
@@ -447,7 +469,7 @@ void panduan()
 			if(flag_chuhuan == 1)//第2阶段 覆盖error；右转入环 
 			{ 
 				if(Sum_right <= 7000) 
-					error = 15; 
+					error = e_a; 
 				else 
 				{ 
 					flag_chuhuan = 2; 
@@ -460,7 +482,7 @@ void panduan()
 				flag_chuhuan = 3; 
 			} 
 			if(flag_chuhuan == 3)//第3阶段 覆盖error；直行出环 
-				if(Sum_right <= 4500) 
+				if(Sum_right <= X) 
 					error = -20; 
 				else 
 				{ 
@@ -520,115 +542,73 @@ void panduan()
  
  
 /////////////////////////////////////////////避障////////////////////////////////////// 
-	if(1) 
+	if(0) 
 	{ 
 	//避障，覆盖采集的error值,并且只有flag_bizhang = 0或3，其他正常熏鸡才开启 
-		if(type_bz == 0)//左避障
-		{
-			if(dl1a_distance_mm>700&& dl1a_distance_mm < 800 && flag_bizhang ==0 && abs(error) <= 15) 
+		if(dl1a_distance_mm>700&& dl1a_distance_mm < 800 && flag_bizhang ==0 && abs(error) <= 15) 
+		{ 
+			flag_bizhang = 1;//已避障 
+			Ang_reset();//进入避障环节，角度清零 
+		}	 
+		if(flag_bizhang == 1) 
+		{ 
+			if(FJ_Angle <= 40) 
+				error = 100;// 
+			else if(FJ_Angle > 40) 
 			{ 
-				flag_bizhang = 1;//已避障 
-				Ang_reset();//进入避障环节，角度清零 
-			}	 
-			if(flag_bizhang == 1) 
+				flag_bizhang = 2; 
+				Sum_left = 0; 
+			}		 
+		} 
+		if(flag_bizhang == 2) 
+		{ 
+			if(Sum_left <= 8000) 
+				error = -15;// 
+			else if(Sum_left > 8000) 
 			{ 
-				if(FJ_Angle <= 40) 
-					error = 100;// 
-				else if(FJ_Angle > 40) 
-				{ 
-					flag_bizhang = 2; 
-					Sum_left = 0; 
-				}		 
+				flag_bizhang = 3; 
+				Ang_reset(); 
+			}		 
+		} 
+		if(flag_bizhang == 3) 
+		{ 
+			if(FJ_Angle >= -67) 
+				error = -30; 
+			else if(FJ_Angle <-67) 
+			{ 
+				flag_bizhang = 4; 
+				Ang_reset(); 
 			} 
-			if(flag_bizhang == 2) 
-			{ 
-				if(Sum_left <= 8000) 
-					error = -15;// 
-				else if(Sum_left > 8000) 
-				{ 
-					flag_bizhang = 3; 
-					Ang_reset(); 
-				}		 
-			} 
-			if(flag_bizhang == 3) 
-			{ 
-				if(FJ_Angle >= -135) 
-					error = -60; 
-				else if(FJ_Angle <-135) 
-				{ 
-					flag_bizhang = 4; 
-					Ang_reset(); 
-				} 
-			} 
-			if(flag_bizhang == 4)
-			{
-				if(FJ_Angle <= 70)
-					error= 45;
-				else if(FJ_Angle > 70)
-				{
-					flag_bizhang = 5;
-					Ang_reset();
-				}
-			}
-		}
-		if(type_bz == 1)//右避障
-		{
-			if(dl1a_distance_mm>700&& dl1a_distance_mm < 800 && flag_bizhang ==0 && abs(error) <= 15) 
-			{ 
-				flag_bizhang = 1;//已避障 
-				Ang_reset();//进入避障环节，角度清零 
-			}	 
-			if(flag_bizhang == 1) 
-			{ 
-				if(FJ_Angle >= -40) 
-					error = -100;// 
-				else if(FJ_Angle < -40) 
-				{ 
-					flag_bizhang = 2; 
-					Sum_right = 0; 
-				}		 
-			} 
-			if(flag_bizhang == 2) 
-			{ 
-				if(Sum_right <= 8000) 
-					error = 15;// 
-				else if(Sum_right > 8000) 
-				{ 
-					flag_bizhang = 3; 
-					Ang_reset(); 
-				}		 
-			} 
-			if(flag_bizhang == 3) 
-			{ 
-				if(FJ_Angle <= 135) 
-					error = 60; 
-				else if(FJ_Angle >135) 
-				{ 
-					flag_bizhang = 4; 
-					Ang_reset(); 
-				} 
-			} 
-			if(flag_bizhang == 4)
-			{
-				if(FJ_Angle >= -70)
-					error= -40;
-				else if(FJ_Angle < 70)
-				{
-					flag_bizhang = 5;
-					Ang_reset();
-				}
-			}
-		}
+		} 
 	} 
 	 
+/////////////////////////////////////////////直角////////////////////////////////////// 
+	if(0)
+	{
+		if(flag_zhijiao == 1)
+		{
+			if( FJ_Angle <=100 )
+				error = 90;
+			else if(FJ_Angle >100)
+				flag_zhijiao = 0;//正常熏鸡
+		}
+		else if(flag_zhijiao == 1)
+		{
+			if( FJ_Angle >=-100 )
+				error = -90;
+			else if(FJ_Angle <-100)
+				flag_zhijiao = 0;//正常熏鸡
+		}
+	}
+	
 //	转向环 
-	xunjihuan = pidxunxian_T(error);
-	pwm_l = 0 - xunjihuan;// pwm? ? 
-	pwm_r = 0 + xunjihuan;//  pwm? ?	 
+	xunji = pidxunxian_T(error,imu660ra_gyro_z);
+	pwm_l = 0 - xunji;// pwm? ? 
+	pwm_r = 0 + xunji;//  pwm? ?	 
  
 //  速度环 
 	if(flag_diuxian == 0)//没有丢线 
-		speed_targe = rhy+ rhy*(-0.000042*(ad[1] - ad[3])*(ad[1] - ad[3]) - 0.0092 *abs((ad[1] - ad[3])));//speed_targe = rhy+ rhy*(-0.000178*(ad[1] - ad[3])*(ad[1] - ad[3]) - 0.006 *abs((ad[1] - ad[3]))) 
+		speed_targe = rhy+ rhy*(-0.000333*(ad[1] - ad[3])*(ad[1] - ad[3]) + 0.000333 *abs((ad[1] - ad[3])));//speed_targe = rhy+ rhy*(-0.000178*(ad[1] - ad[3])*(ad[1] - ad[3]) - 0.006 *abs((ad[1] - ad[3]))) 
 	else if(flag_diuxian == 1)//丢线不乱跑 
 		speed_targe = 0; 
 	error_s = (2*speed_targe - speed_l -speed_r)/2; 
@@ -660,11 +640,15 @@ void panduan()
  
  
 void main() 
-{ 
+{  
 	 
 	//编码器启动用的 
-	sys_init(); 
-	EA = 1; 
+//	sys_init(); //弄了自动下载，一个是好像和这个冲突，另一个是这个变的会导致无法reset
+	EA = 1;
+	
+	//load(2)
+	//upload初始化
+//	upload_init();加了容易电感跳变
 	init();//初始化 
 	while(1) 
 	{ 
@@ -711,23 +695,42 @@ void pit_callback_1()
 			flag_chuhuan = 0;//复位 
 		} 
 } 
-//编码器初始化之一 
-void sys_init() 
-{ 
-    WTST = 0;  //设置程序指令延时参数，赋值为0可将CPU执行指令的速度设置为最快 
-    EAXFR = 1; //扩展寄存器(XFR)访问使能 
-    CKCON = 0; //提高访问XRAM速度 
+//编码器初始化之一
+void sys_init()
+{
+    WTST = 0;  //设置程序指令延时参数，赋值为0可将CPU执行指令的速度设置为最快
+    EAXFR = 1; //扩展寄存器(XFR)访问使能
+    CKCON = 0; //提高访问XRAM速度
+
+    P0M1 = 0x30;   P0M0 = 0x30;   //设置P0.4、P0.5为漏极开路(实验箱加了上拉电阻到3.3V)
+    P1M1 = 0x32;   P1M0 = 0x32;   //设置P1.1、P1.4、P1.5为漏极开路(实验箱加了上拉电阻到3.3V), P1.1在PWM当DAC电路通过电阻串联到P2.3
+    P2M1 = 0x3c;   P2M0 = 0x3c;   //设置P2.2~P2.5为漏极开路(实验箱加了上拉电阻到3.3V)，设置开漏模式需要断开PWM当DAC电路中的R2电阻
+    P3M1 = 0x50;   P3M0 = 0x50;   //设置P3.4、P3.6为漏极开路(实验箱加了上拉电阻到3.3V)
+    P4M1 = 0x3c;   P4M0 = 0x3c;   //设置P4.2~P4.5为漏极开路(实验箱加了上拉电阻到3.3V)
+    P5M1 = 0x0c;   P5M0 = 0x0c;   //设置P5.2、P5.3为漏极开路(实验箱加了上拉电阻到3.3V)
+    P6M1 = 0xff;   P6M0 = 0xff;   //设置为漏极开路(实验箱加了上拉电阻到3.3V)
+    P7M1 = 0x00;   P7M0 = 0x00;   //设置为准双向口
+}
  
-    P0M1 = 0x30;   P0M0 = 0x30;   //设置P0.4、P0.5为漏极开路(实验箱加了上拉电阻到3.3V) 
-    P1M1 = 0x32;   P1M0 = 0x32;   //设置P1.1、P1.4、P1.5为漏极开路(实验箱加了上拉电阻到3.3V), P1.1在PWM当DAC电路通过电阻串联到P2.3 
-    P2M1 = 0x3c;   P2M0 = 0x3c;   //设置P2.2~P2.5为漏极开路(实验箱加了上拉电阻到3.3V)，设置开漏模式需要断开PWM当DAC电路中的R2电阻 
-    P3M1 = 0x50;   P3M0 = 0x50;   //设置P3.4、P3.6为漏极开路(实验箱加了上拉电阻到3.3V) 
-    P4M1 = 0x3c;   P4M0 = 0x3c;   //设置P4.2~P4.5为漏极开路(实验箱加了上拉电阻到3.3V) 
-    P5M1 = 0x0c;   P5M0 = 0x0c;   //设置P5.2、P5.3为漏极开路(实验箱加了上拉电阻到3.3V) 
-    P6M1 = 0xff;   P6M0 = 0xff;   //设置为漏极开路(实验箱加了上拉电阻到3.3V) 
-    P7M1 = 0x00;   P7M0 = 0x00;   //设置为准双向口 
-} 
- 
+//自动下载初始化设置
+void upload_init()
+{
+	P0M0 = 0x00;P0M1 = 0x00;
+	P1M0 = 0x00;P1M1 = 0x00;
+	P2M0 = 0x00;P2M1 = 0x00;
+	P3M0 = 0x00;P3M1 = 0x00;
+	
+	SCON = 0x50;
+	AUXR = 0x40;
+	TMOD = 0x00;
+	TH1 = BAUD>>8;
+	TL1 = BAUD;
+	TR1 = 1;
+	ES = 1;
+	EA = 1;
+	
+	index = 0;
+}
 //按键 
 int16 KEY_Read(uint8 mode) 
 { 
@@ -784,4 +787,20 @@ void Ang_reset()
 	FJ_Angle = 0; 
  
 } 
- 
+//计算（@1）
+float _sqrt(float number)
+{
+	int32 i;
+	float x2,y;
+	const float threehalfs = 1.5F;
+	
+	x2 = number * 0.5F;
+	y = number;
+	i = *(int32 * ) &y;
+	i = 0x5f3759df - (i >> 1);
+	y = * (float * )&i;
+	y = y * (threehalfs - (x2 * y * y));
+	
+	return y;	
+}
+//
