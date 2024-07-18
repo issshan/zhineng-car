@@ -62,7 +62,7 @@ int32 pidxunxian_T(float error_img,int16 w)  //@（@4）
 {									//
 	//无更新
 	//计算
-    output_T = (int32)(Kp_T * error_img+ Kd_T*(error_img-error_last_T) + Kp_W * (abs(w) - abs(last_w)));//
+    output_T = (int32)(Kp_T * error_img+ Kd_T*(error_img-error_last_T));//
 	if(output_T > 0)	output_T = output_T -  Kp_W * (abs(w) - abs(last_w));
 	else if(output_T <= 0)	output_T = output_T +  Kp_W * (abs(w) - abs(last_w));
     error_last_T = error_img;
