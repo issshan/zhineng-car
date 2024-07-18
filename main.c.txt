@@ -33,7 +33,7 @@ int16 flag_diuxian = 0;//0:正常熏鸡  1:丢线
 uint16 flag_zhijiao = 0;//0:正常熏鸡  1:左直角  2：右直角
 int16 typ = 0;//0:右圆环   1：左圆环  3:不尽欢
 uint16 flag_speed_down = 0;//0: 正常 1：识别到障碍，开始降速
-uint16 type_bz = 1;//0：左避障1：右避障
+uint16 type_bz = 1;//0：左避障1：右避障 2：不避障
 
 //速度
 int32 pwm_l=0, pwm_r=0;
@@ -65,13 +65,14 @@ int16 key_count = 0;//按键调参的当前参数
 uint16 mod;//显示页面的叶数
 //按键调参对象
 uint16 diangan_mod = 10;//电感采集模式  >=10:归一化    <10：不归一化
-int16 rhy = 150;//目标速度
+int16 rhy = 240;//目标速度
 int16 Ang_1 = 90;
 int16 X = 4500;
 int16 e_a = 5;
-int16 e_a_1 = 3;
+int16 e_a_1 = 6;
 int16 e_b_1 = 10;
 int16 e_b = 15;
+int16 e_bi = 50;
 
 //函数声明
 void sys_init(void);
@@ -242,9 +243,9 @@ void show(void)
 		ips114_showstr(0,1,"key");ips114_showstr(14*10,1,"Kp_T=");
 							ips114_showstr(14*10,2,"Kd-T=");
 							ips114_showstr(14*10,3,"	e-you=");
-							ips114_showstr(14*10,4,"e-zuo=");	
+							ips114_showstr(14*10,4,"bz_err=");	
 							ips114_showstr(14*10,5,"youc=");
-							ips114_showstr(14*10,6,"zuoc");
+							ips114_showstr(14*10,6,"typ_bz");
 		
 		while(mod == 2)
 		{
@@ -293,15 +294,15 @@ void show(void)
 				else if(key_count ==2)
 					Kp_T = Kp_T + add -sub;
 				else if(key_count ==3)
-					Kd_T = Kd_T + add -sub;
+					Kd_T = Kd_T + 100*add -100*sub;
 				else if(key_count ==4)
 					e_a = e_a+ 1*add - 1*sub;
 				else if(key_count ==5)
-					e_b = e_b + 1*add - 1*sub;
+					e_bi = e_bi + 1*add - 1*sub;
 				else if(key_count == 6)
 					e_a_1 = e_a_1+ 1*add - 1*sub;
 				else if(key_count == 7)
-					e_b_1 = e_b_1 + 1*add - 1*sub;
+					type_bz = type_bz + 1*add - 1*sub;
 				//归零（保证按一下只修改一次）
 				add = 0;sub = 0;
 			}
@@ -309,9 +310,9 @@ void show(void)
 			ips114_showint16(4*10,1,key_count);ips114_showint16(18*10,1,Kp_T);
 			ips114_showint16(4*10,2,speed_targe);ips114_showint16(18*10,2,Kd_T);
 										ips114_showint16(18*10,3,e_a);			
-										ips114_showint16(18*10,4,e_b);			
+										ips114_showint16(18*10,4,e_bi);			
 										ips114_showint16(18*10,5,e_a_1);
-										ips114_showint16(18*10,6,e_b_1);
+										ips114_showint16(18*10,6,type_bz);
 			
 			//示波器(数据发送)
 //			seekfree_assistant_oscilloscope_send(&seekfree_assistant_oscilloscope_data);
@@ -430,7 +431,7 @@ void panduan()
 	{ 
 		if(typ==0)//(右圆环) 
 		{ 
-			//陀螺仪苯环测试 
+			//陀螺仪苯环测试 左右电感和，排除掉上坡误判！
 			if(ad[2]>=3500 && flag_chuhuan == 0 && ad[0] + ad[4] >=160)//第一阶段 清零；进入下一阶段(ad[2]>=3500 && ad[0]>=0 && ad[1]>=0 && chuhuan>0  && (flag_bizhang ==0 || flag_bizhang ==4)) 
 			{ 
 				flag_chuhuan = 1; 
@@ -550,15 +551,15 @@ void panduan()
 /////////////////////////////////////////////避障////////////////////////////////////// 
 	if(1) 
 	{ 
-		if(flag_bizhang ==0 || flag_bizhang == 4)
+		if(flag_bizhang ==0 || flag_bizhang == 5)
 				flag_speed_down = 0;
 		if(dl1a_distance_mm <= 1000)	
 				flag_speed_down = 1;
-		if(type_bz == 0)//左避障
+		if(type_bz == 0)//左避障（3段）
 		{
 			
 			
-		//避障，覆盖采集的error值,并且只有flag_bizhang = 0或3，其他正常熏鸡才开启 
+		//避障，覆盖采集的error值,并且只有flag_bizhang = 0或3，其他正常熏鸡才开启 且得是直道（error<15）
 			if(dl1a_distance_mm>700&& dl1a_distance_mm < 800 && flag_bizhang ==0 && abs(error) <= 15) 
 			{ 
 				flag_bizhang = 1;//已避障 
@@ -596,7 +597,7 @@ void panduan()
 				} 
 			} 
 		}
-		if(type_bz == 1)//右避障
+		if(type_bz == 1)//右避障（4段）
 		{
 			if(dl1a_distance_mm>700&& dl1a_distance_mm < 800 && flag_bizhang ==0 && abs(error) <= 15) 
 			{ 
@@ -636,7 +637,7 @@ void panduan()
 			if(flag_bizhang == 4)
 			{
 				if(FJ_Angle >= -70)
-					error= -40;
+					error= -e_bi;
 				else if(FJ_Angle < 70)
 				{
 					flag_bizhang = 5;
