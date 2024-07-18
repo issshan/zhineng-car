@@ -551,9 +551,7 @@ void panduan()
 /////////////////////////////////////////////避障////////////////////////////////////// 
 	if(1) 
 	{ 
-		if(flag_bizhang ==0 || flag_bizhang == 5)
-				flag_speed_down = 0;
-		if(dl1a_distance_mm <= 1000)	
+		if(dl1a_distance_mm <= 1000 && abs(error) <= 15)	
 				flag_speed_down = 1;
 		if(type_bz == 0)//左避障（3段）
 		{
@@ -642,6 +640,7 @@ void panduan()
 				{
 					flag_bizhang = 5;
 					Ang_reset();
+					flag_speed_down = 0;
 				}
 			}
 		}
