@@ -16,23 +16,24 @@
 #define KEY_2 P16//换key
 #define KEY_3 P17//add
 #define KEY_4 P51//sub
+//load(1)
+#define FOSC	11059200UL
+#define BAUD	(65535 - (FOSC/115200+2)/4)
 
+int index;
 int16 i;//for专用
 
 //计时间 计数变量
 uint32 temp_count = 0;//已使用， 作为入环允许标志的计时复位
-uint32 temp_count_1 = 0;//已使用， 用作从启动开始到避障准备阶段的开始的计时
 
 //标志位（苯环,避障,丢线）
 int16 flag_chuhuan = 0;//出环第0阶段标志 允许入环
 int16 flag_bizhang = 0;//还未执行避障
 int16 flag_diuxian = 0;//0:正常熏鸡  1:丢线
 uint16 flag_zhijiao = 0;//0:正常熏鸡  1:左直角  2：右直角
-int16 typ = 0;//0:右圆环   1：左圆环  3:不尽欢
+int16 typ = 1;//0:右圆环   1：左圆环  3:不尽欢
 uint16 flag_speed_down = 0;//0: 正常 1：识别到障碍，开始降速
-uint16 type_bz = 2;//0：左避障1：右避障 2：不避障
-uint16 flag_bz_jishi = 0;//0:默认没开始计时  1:启动后开始计时
-uint16 flag_bz = 0;//0：不允许避障 1：（计时到了）允许避障
+uint16 type_bz = 0;//0：左避障1：右避障 2：不避障
 
 //速度
 int32 pwm_l=0, pwm_r=0;
@@ -64,13 +65,14 @@ int16 key_count = 0;//按键调参的当前参数
 uint16 mod;//显示页面的叶数
 //按键调参对象
 uint16 diangan_mod = 10;//电感采集模式  >=10:归一化    <10：不归一化
-int16 rhy = 240;//目标速度
+int16 rhy = 230;//目标速度
+int16 Ang_1 = 90;
+int16 X = 4500;
 int16 e_a = 5;
 int16 e_a_1 = 6;
-int16 e_b_1 = 10;
-int16 e_b = 15;
-uint16 bz_ms = 1000;
-int16 he = 0;
+int16 e_b_1 = 12;
+int16 e_b = 5;
+int16 e_bi = 20;
 
 //函数声明
 void sys_init(void);
@@ -191,7 +193,7 @@ void show(void)
 		ips114_showstr(0,4,"speed="); ips114_showstr(14*10, 6, "dist");	
 		ips114_showstr(0,5,"sudu="); 
 		ips114_showstr(0,6,"xunji="); 
-		ips114_showstr(0, 7, "left=");
+		ips114_showstr(0, 7, "step=");
 		
 		while(mod ==1)
 		{
@@ -214,12 +216,12 @@ void show(void)
 			ips114_showint32(4*10,0,ad[1],4);		ips114_showint32(14*10,0,ad[3],4);
 			ips114_showint32(9*10,0,ad[2],4);		ips114_showint32(18*10,0,ad[4],4);
 			ips114_showuint16(18*10,1,mod);		ips114_showint32(8*10,1,error,6);
-			ips114_showint16(18*10, 2, speed_l);    ips114_showint16(8*10, 2, he); 
-			ips114_showint16(18*10, 3, speed_r);	ips114_showint16(8*10, 3, flag_diuxian);
+			ips114_showint16(18*10, 2, speed_l);
+			ips114_showint16(18*10, 3, speed_r);
 			ips114_showint16(8*10, 4, speed_targe);	ips114_showint32(19*10, 4, pwm_l,5);
 			ips114_showint32(8*10, 5, suduhuan,5);ips114_showint32(19*10, 5, pwm_r,5);	
 			ips114_showint32(8*10, 6, xunji,5);
-			ips114_showint32(8*10, 7,Sum_left,5);
+			ips114_showint16(8*10, 7,flag_bizhang);
 
 											if(dl1a_finsh_flag)
 											{
@@ -240,9 +242,9 @@ void show(void)
 		ips114_showstr(0,0,"mod");ips114_showstr(14*10,0,"SPEED=");	
 		ips114_showstr(0,1,"key");ips114_showstr(14*10,1,"Kp_T=");
 							ips114_showstr(14*10,2,"Kd-T=");
-							ips114_showstr(14*10,3,"	e-you=");
-							ips114_showstr(14*10,4,"bz_ms=");	
-							ips114_showstr(14*10,5,"youc=");
+							ips114_showstr(14*10,3,"	e-zuo=");
+							ips114_showstr(14*10,4,"bz_err=");	
+							ips114_showstr(14*10,5,"zuoc=");
 							ips114_showstr(14*10,6,"typ_bz");
 		
 		while(mod == 2)
@@ -294,11 +296,11 @@ void show(void)
 				else if(key_count ==3)
 					Kd_T = Kd_T + 100*add -100*sub;
 				else if(key_count ==4)
-					e_a = e_a+ 1*add - 1*sub;
+					e_b = e_b+ 1*add - 1*sub;
 				else if(key_count ==5)
-					bz_ms = bz_ms + 100*add - 100*sub;
+					e_bi = e_bi + 1*add - 1*sub;
 				else if(key_count == 6)
-					e_a_1 = e_a_1+ 1*add - 1*sub;
+					e_b_1 = e_b_1+ 1*add - 1*sub;
 				else if(key_count == 7)
 					type_bz = type_bz + 1*add - 1*sub;
 				//归零（保证按一下只修改一次）
@@ -307,9 +309,9 @@ void show(void)
 			ips114_showint16(4*10,0,mod);      ips114_showint16(18*10,0,rhy);
 			ips114_showint16(4*10,1,key_count);ips114_showint16(18*10,1,Kp_T);
 			ips114_showint16(4*10,2,speed_targe);ips114_showint16(18*10,2,Kd_T);
-										ips114_showint16(18*10,3,e_a);			
-										ips114_showint16(18*10,4,bz_ms);			
-										ips114_showint16(18*10,5,e_a_1);
+										ips114_showint16(18*10,3,e_b);			
+										ips114_showint16(18*10,4,e_bi);			
+										ips114_showint16(18*10,5,e_b_1);
 										ips114_showint16(18*10,6,type_bz);
 			
 			//示波器(数据发送)
@@ -346,9 +348,9 @@ void caiji_data()
 		else
 			flag_zhijiao = 0;//正常熏鸡
 	}
-	//判断丢线(避障的第一步即打脚时也默认丢线不给速度)（避障第二步不能丢线）
-	he = ad[0]+ad[1]+ad[3]+ad[4];
-	if((ad[0]+ad[1]+ad[3]+ad[4] < 100 || flag_bizhang == 1) && (flag_bizhang != 2 && flag_bizhang !=3))	
+	//判断丢线(避障的第一步即打脚时也默认丢线不给速度)（避障第二步不能丢线） 
+	if((ad[0]+ad[1]+ad[3]+ad[4] < 100 || flag_bizhang == 1 || flag_zhijiao == 1 ||flag_zhijiao == 2)
+									&&(flag_bizhang != 2 && flag_bizhang !=3))	
 		flag_diuxian = 1;//丢线 
 	else 
 		flag_diuxian = 0;//没丢 
@@ -387,7 +389,7 @@ void caiji_data()
 		error_a = sqrt(ad[0]*ad[0] +ad[1]*ad[1]); 
 		error_b = sqrt(ad[3]*ad[3] +ad[4]*ad[4]); 
 		error = (error_a - error_b) * 100 /(error_a + error_b + 1);//差比和 
-	    if(error > 100)	 	error = 100; 
+	    if(error > 100)	error = 100; 
 	    if(error < -100)	error = -100; 
 //    } 
 //    else//丢线了 也不左右乱晃 
@@ -408,9 +410,6 @@ void caiji_data()
 	{ 
 		speed_r = -speed_r; 
 	} 
-	//避障计时开始
-	if(abs(speed_l) + abs(speed_r) >= 100)
-		flag_bz_jishi = 1;
 	//编码器积分 
 	Sum_left += speed_l; 
 	Sum_right += speed_r; 
@@ -468,7 +467,7 @@ void panduan()
 		if(typ== 1)//(左圆环) 
 		{ 
 			//陀螺仪苯环测试 
-			if(ad[2]>=3500  && flag_chuhuan == 0 && ad[0] + ad[4] >=160)//第一阶段 清零；进入下一阶段(ad[2]>=3500 && ad[0]>=0 && ad[1]>=0 && chuhuan>0  && (flag_bizhang ==0 || flag_bizhang ==4)) 
+			if(ad[2]>=3500  && flag_chuhuan == 0 && (ad[0] + ad[4]) >=160)//第一阶段 清零；进入下一阶段(ad[2]>=3500 && ad[0]>=0 && ad[1]>=0 && chuhuan>0  && (flag_bizhang ==0 || flag_bizhang ==4)) 
 			{ 
 				flag_chuhuan = 1; 
 				Ang_reset(); 
@@ -495,8 +494,8 @@ void panduan()
 				else 
 				{ 
 					flag_chuhuan = 4; 
-	//				typ = 1;//左接左 
-					typ = 0;//左接右 
+					typ = 1;//左接左 
+//					typ = 0;//左接右 
 				} 
 		} 
 			 
@@ -504,19 +503,18 @@ void panduan()
 	} 
 	 
 /////////////////////////////////////////////避障////////////////////////////////////// 
-	if(flag_bz) //允许避障
+	if(1) 
 	{ 
-		if(flag_bizhang == 0 && dl1a_distance_mm <= 1000 && abs(error) <= 15)
-		{
-			//还没避障，但是准备避障的阶段
-			flag_speed_down = 1;
-		}
-		
-		if(type_bz == 0)//左避障（3段）
+		if(flag_bizhang == 0 || flag_bizhang ==5)
+				flag_speed_down = 0;
+		if(dl1a_distance_mm <= 1000 && abs(error) <= 15)	//排除拐弯处识别到墙体的情况
+				flag_speed_down = 1;
+		if(type_bz == 0)//左避障（4段）
 		{
 			
+			
 		//避障，覆盖采集的error值,并且只有flag_bizhang = 0或3，其他正常熏鸡才开启 且得是直道（error<15）
-			if( dl1a_distance_mm < 800 && dl1a_distance_mm>700 && flag_bizhang ==0 && abs(error) <= 15) 
+			if(dl1a_distance_mm>700&& dl1a_distance_mm < 800 && flag_bizhang ==0 && abs(error) <= 15) 
 			{ 
 				flag_bizhang = 1;//已避障 
 				Ang_reset();//进入避障环节，角度清零 
@@ -543,15 +541,25 @@ void panduan()
 			} 
 			if(flag_bizhang == 3) 
 			{ 
-				if(FJ_Angle >= -67) 
-					error = -30; 
+				if(FJ_Angle >= -135) 
+					error = -e_bi; 
 				else if(FJ_Angle <-67) 
 				{ 
 					flag_bizhang = 4; 
 					Ang_reset(); 
-					flag_speed_down = 0;
 				} 
-			}  
+			} 
+			if(flag_bizhang == 4)
+			{
+				if(FJ_Angle <= 70)
+					error= 50;
+				else if(FJ_Angle > 70)
+				{
+					flag_bizhang = 5;
+					Ang_reset();
+					flag_speed_down = 0;
+				}
+			}
 		}
 		if(type_bz == 1)//右避障（4段）
 		{
@@ -593,7 +601,7 @@ void panduan()
 			if(flag_bizhang == 4)
 			{
 				if(FJ_Angle >= -70)
-					error= -50;
+					error= -e_bi;
 				else if(FJ_Angle < 70)
 				{
 					flag_bizhang = 5;
@@ -631,13 +639,13 @@ void panduan()
 //  速度环 
 	if(flag_diuxian == 0)//没有丢线
 	{
-		if(flag_speed_down == 0)		//没有避障降速
+		if(flag_speed_down == 0)		
 			speed_targe = rhy+ rhy*(-0.000333*(ad[1] - ad[3])*(ad[1] - ad[3]) + 0.000333 *abs((ad[1] - ad[3])));//speed_targe = rhy+ rhy*(-0.000178*(ad[1] - ad[3])*(ad[1] - ad[3]) - 0.006 *abs((ad[1] - ad[3]))) 
 		else if(flag_speed_down == 1)//降速
 			speed_targe = 140;
 	}
 	else if(flag_diuxian == 1)//丢线不乱跑 
-		speed_targe = 0;
+		speed_targe = 0; 
 	error_s = (2*speed_targe - speed_l -speed_r)/2; 
 	suduhuan = pidpwm_l(error_s); 
 	pwm_l += suduhuan; 
@@ -666,11 +674,13 @@ void panduan()
 } 
  
  
+ 
+ 
+ 
+
 void main() 
 {  
-	//编码器启动用的 
 	EA = 1;
-	
 	init();//初始化 
 	while(1) 
 	{ 
@@ -708,10 +718,6 @@ void pit_callback_1()
 			temp_count = 0;//复位 
 			flag_chuhuan = 0;//复位 
 		} 
-		
-	if(flag_bz_jishi)
-		if(temp_count_1++ >= bz_ms)//开始发车（轮子转开始）1s后开始避障
-			flag_bz = 1;
 } 
 //编码器初始化之一
 void sys_init()
@@ -772,7 +778,7 @@ int16 KEY_Read(uint8 mode)
 } 
  
 //示波器 
-uint32 seekfree_assistant_transfer_callback(const uint8 *buff, uint32 length)
+uint32 seekfree_assistant_transfer_callback   (const uint8 *buff, uint32 length)
 {
 	uart_putbuff(DEBUG_UART, buff, length);
 	return 0;
