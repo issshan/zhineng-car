@@ -15,8 +15,8 @@ float Kp_s = 134;  //
 float Ki_s = 0.31;//10.0;  //0.2
 float Kd_s = 0;
 //转向环	
-float Kp_T= 240; //240
-float Kd_T=1800;// 
+float Kp_T= 260; //240
+float Kd_T=3500;// 
 float Kp_W = 0;
 int16 last_w = 0;
 
@@ -46,10 +46,13 @@ int16 pidpwm_l(int16 error_speed_l)  //
      {
          error_sum_speed_l=-10000;
      }
-    output_speed_l =(int32 )(Kp_s * error_speed_l+ Ki_s*error_sum_speed_l + Kd_s*(error_speed_l - error_speed_last));//
+    output_speed_l =(int32 )(Kp_s * error_speed_l+ Ki_s*error_sum_speed_l );//
+	if(output_speed_l > 20000)	output_speed_l = 20000;
+	else if(output_speed_l < -20000)	output_speed_l = -20000;
 	
     error_sum_speed_l+=error_speed_l;
 	error_speed_last = error_speed_l;
+	
     return  output_speed_l;
 }
 
@@ -59,7 +62,9 @@ int32 pidxunxian_T(float error_img,int16 w)  //@（@4）
 {									//
 	//无更新
 	//计算
-    output_T = (int32)(Kp_T * error_img+ Kd_T*(error_img-error_last_T) + Kp_W * (w - last_w));//
+    output_T = (int32)(Kp_T * error_img+ Kd_T*(error_img-error_last_T) + Kp_W * (abs(w) - abs(last_w)));//
+	if(output_T > 0)	output_T = output_T -  Kp_W * (abs(w) - abs(last_w));
+	else if(output_T <= 0)	output_T = output_T +  Kp_W * (abs(w) - abs(last_w));
     error_last_T = error_img;
 	last_w = w;
     return output_T;
